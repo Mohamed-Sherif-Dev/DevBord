@@ -31,7 +31,7 @@ export default function Topbar() {
   const [searchResults, setSearchResults] = useState<any[]>([])
   const [searching,     setSearching]     = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
-  const searchTimeout = useRef<NodeJS.Timeout>()
+  const searchTimeout = useRef<NodeJS.Timeout | null>(null)
 
   // ── Notifications ────────────────────────────────
   const [showNotifs,  setShowNotifs]  = useState(false)
@@ -74,7 +74,9 @@ export default function Topbar() {
     }
 
     setSearching(true)
-    clearTimeout(searchTimeout.current)
+    if(searchTimeout.current){
+      clearTimeout(searchTimeout.current)
+    }
 
     searchTimeout.current = setTimeout(async () => {
       try {
