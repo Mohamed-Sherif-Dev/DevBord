@@ -61,12 +61,92 @@ export default function OnboardingPage() {
     setInvites(prev => prev.map((v, i) => i === index ? value : v))
   }
 
-  async function handleFinish() {
-    setLoading(true)
-    await new Promise(r => setTimeout(r, 1500))
+  async function handleInvites(workspaceId: string) {
+  const validEmails = invites.filter(email => email.trim() && email.includes("@"))
+  if (!validEmails.length) return
+
+  await Promise.all(
+    validEmails.map(email =>
+      fetch("/api/team/invite", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({
+          email,
+          role:        "MEMBER",
+          workspaceId,
+        }),
+      })
+    )
+  )
+}
+
+  // async function handleFinish() {
+  //   setLoading(true)
+  //   await new Promise(r => setTimeout(r, 1500))
+  //   toast.success("Workspace created! Let's ship! 🚀")
+  //   router.push("/dashboard")
+  // }
+async function handleFinish() {
+  setLoading(true)
+  try {
+    // 1. Create Workspace
+    const wsRes  = await fetch("/api/workspaces", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        name:  workspace.name,
+        color: workspace.color,
+      }),
+    })
+    const wsData = await wsRes.json()
+    const wsId   = wsData.data?.id
+
+    if (!wsId) {
+      toast.error("Failed to create workspace")
+      return
+    }
+
+    // 2. Create Project
+    await fetch("/api/projects", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        name:        project.name,
+        color:       project.color,
+        workspaceId: wsId,
+      }),
+    })
+
+    // 3. Send Invites
+    const validEmails = invites.filter(e => e.trim() && e.includes("@"))
+    if (validEmails.length > 0) {
+      await Promise.all(
+        validEmails.map(email =>
+          fetch("/api/team/invite", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({
+              email,
+              role:        "MEMBER",
+              workspaceId: wsId,
+            }),
+          })
+        )
+      )
+      toast.success(`${validEmails.length} invitation(s) sent! 📧`)
+    }
+
     toast.success("Workspace created! Let's ship! 🚀")
     router.push("/dashboard")
+  } catch (err) {
+    console.error(err)
+    toast.error("Something went wrong")
+  } finally {
+    setLoading(false)
   }
+}
+
+
 
   const canNext =
     step === 1 ? workspace.name.trim().length >= 2 :

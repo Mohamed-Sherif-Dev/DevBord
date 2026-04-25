@@ -1,4 +1,5 @@
-import NextAuth, { NextAuthOptions } from "next-auth";
+
+import type { NextAuthOptions } from "next-auth"
 import { PrismaAdapter }        from "@auth/prisma-adapter"
 import GoogleProvider           from "next-auth/providers/google"
 import GithubProvider           from "next-auth/providers/github"
@@ -12,10 +13,12 @@ export const authOptions: NextAuthOptions = {
     GoogleProvider({
       clientId:     process.env.GOOGLE_CLIENT_ID!,
       clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true, // ✅ ده الحل
     }),
     GithubProvider({
       clientId:     process.env.GITHUB_CLIENT_ID!,
       clientSecret: process.env.GITHUB_CLIENT_SECRET!,
+      allowDangerousEmailAccountLinking: true, // ✅ ده الحل
     }),
     CredentialsProvider({
       name: "credentials",
@@ -32,19 +35,19 @@ export const authOptions: NextAuthOptions = {
 
         if (!user || !user.password || !user.isActive) return null
 
-        // Check if locked
-        if (user.lockedUntil && user.lockedUntil > new Date()) return null
+        // Check locked
+        if (user.lockedUntil && user.lockedUntil > new Date()) {
+          throw new Error("Account locked. Try again later.")
+        }
 
         const isValid = await bcrypt.compare(credentials.password, user.password)
 
         if (!isValid) {
-          // Increment failed logins
           const failedLogins = user.failedLogins + 1
           await prisma.user.update({
             where: { id: user.id },
             data:  {
               failedLogins,
-              // Lock after 5 attempts for 15 minutes
               ...(failedLogins >= 5 && {
                 lockedUntil: new Date(Date.now() + 15 * 60 * 1000)
               })
@@ -53,13 +56,22 @@ export const authOptions: NextAuthOptions = {
           return null
         }
 
-        // Reset failed logins on success
+        // Reset on success
         await prisma.user.update({
           where: { id: user.id },
-          data:  { failedLogins: 0, lockedUntil: null, lastLoginAt: new Date() }
+          data:  {
+            failedLogins: 0,
+            lockedUntil:  null,
+            lastLoginAt:  new Date(),
+          }
         })
 
-        return { id: user.id, email: user.email, name: user.name, role: user.role }
+        return {
+          id:    user.id,
+          email: user.email,
+          name:  user.name,
+          role:  user.role,
+        }
       }
     })
   ],
@@ -79,7 +91,51 @@ export const authOptions: NextAuthOptions = {
       return session
     }
   },
+  events: {
+    // Auto-create workspace when signing in with OAuth
+    async signIn({ user, account }) {
+      if (account?.provider !== "credentials") {
+        const existing = await prisma.workspace.findFirst({
+          where: { members: { some: { userId: user.id! } } }
+        })
+        if (!existing) {
+          const slug = `ws-${user.id}-${Date.now()}`
+          await prisma.workspace.create({
+            data: {
+              name:       `${user.name}'s Workspace`,
+              slug,
+              isPersonal: true,
+              members: {
+                create: { userId: user.id!, role: "OWNER" }
+              },
+              settings: { create: {} },
+              projects: {
+                create: {
+                  name:  "My First Project",
+                  color: "#8b5cf6",
+                  icon:  "⚡",
+                  members: {
+                    create: { userId: user.id!, role: "MANAGER" }
+                  },
+                  columns: {
+                    create: [
+                      { name: "Backlog",     order: 0, color: "#6b7280" },
+                      { name: "To Do",       order: 1, color: "#3b82f6" },
+                      { name: "In Progress", order: 2, color: "#8b5cf6" },
+                      { name: "In Review",   order: 3, color: "#06b6d4" },
+                      { name: "Done",        order: 4, color: "#22c55e" },
+                    ]
+                  }
+                }
+              }
+            }
+          })
+        }
+      }
+    }
+  },
   pages:   { signIn: "/login" },
-  session: { strategy: "jwt", maxAge: 7 * 24 * 60 * 60 },
+  session: { strategy: "jwt" },
   secret:  process.env.NEXTAUTH_SECRET,
+  debug:   process.env.NODE_ENV === "development",
 }
