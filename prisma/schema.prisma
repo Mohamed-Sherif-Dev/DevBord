@@ -104,6 +104,13 @@ model User {
   timeEntries         TimeEntry[]
   loginHistory        LoginHistory[]
 
+
+channelMembers  ChannelMember[]
+messages        Message[]
+reactions       Reaction[]
+mentions        Mention[]
+
+
   @@index([email])
 }
 
@@ -125,6 +132,101 @@ model Account {
 
   @@unique([provider, providerAccountId])
 }
+
+
+model Channel {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  type        ChannelType @default(PROJECT)
+  projectId   String?
+  workspaceId String
+  isPrivate   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+
+  workspace   Workspace  @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  project     Project?   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages    Message[]
+  members     ChannelMember[]
+
+  @@index([workspaceId])
+  @@index([projectId])
+}
+
+model ChannelMember {
+  id        String   @id @default(cuid())
+  channelId String
+  userId    String
+  lastRead  DateTime @default(now())
+  joinedAt  DateTime @default(now())
+
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, userId])
+}
+
+model Message {
+  id          String    @id @default(cuid())
+  channelId   String
+  userId      String
+  content     String
+  fileUrl     String?
+  fileName    String?
+  fileType    String?
+  replyToId   String?
+  isEdited    Boolean   @default(false)
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  channel     Channel   @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  user        User      @relation(fields: [userId], references: [id])
+  replyTo     Message?  @relation("Replies", fields: [replyToId], references: [id])
+  replies     Message[] @relation("Replies")
+  reactions   Reaction[]
+  mentions    Mention[]
+
+  @@index([channelId])
+  @@index([userId])
+}
+
+model Reaction {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  emoji     String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId, emoji])
+}
+
+model Mention {
+  id        String   @id @default(cuid())
+  messageId String
+  userId    String
+  createdAt DateTime @default(now())
+
+  message   Message  @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id])
+
+  @@unique([messageId, userId])
+}
+
+enum ChannelType {
+  PROJECT
+  WORKSPACE
+  DIRECT
+}
+
+
+
+
+
+
 
 model Session {
   id           String   @id @default(cuid())
@@ -184,6 +286,7 @@ model Workspace {
   projects    Project[]
   invitations Invitation[]
   settings    WorkspaceSettings?
+  channels    Channel[]
 
   @@index([slug])
 }
@@ -256,6 +359,7 @@ model Project {
   labels      Label[]
   columns     Column[]
   activityLogs ActivityLog[]
+  channels    Channel[]
 
   @@index([workspaceId])
 }
@@ -449,3 +553,5 @@ model ActivityLog {
   @@index([taskId])
   @@index([createdAt])
 }
+
+

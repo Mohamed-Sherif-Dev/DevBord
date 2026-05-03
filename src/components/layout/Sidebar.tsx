@@ -6,11 +6,14 @@ import { motion, AnimatePresence } from "framer-motion"
 import {
   LayoutDashboard, FolderOpen, Users,
   Settings, Bell, ChevronLeft, ChevronRight,
-  Zap, LogOut, Plus, Search
+  Zap, LogOut, Plus, Search,
+  MessageSquare,
+  Sparkle
 } from "lucide-react"
 import { useUIStore }   from "@/store/uiStore"
 import { useSession, signOut } from "next-auth/react"
 import { cn, getInitials } from "@/lib/utils"
+
 
 const NAV = [
   { label: "Dashboard", href: "/dashboard",  icon: LayoutDashboard },
@@ -18,6 +21,8 @@ const NAV = [
   { label: "My Tasks",  href: "/my-tasks",   icon: Bell            },
   { label: "Team",      href: "/team",       icon: Users           },
   { label: "Settings",  href: "/settings",   icon: Settings        },
+  {label : "Chat",      href: "/chat",       icon: MessageSquare   },
+  {label : "AI Assistant", href: "/ai", icon: Sparkle          },
 ]
 
 export default function Sidebar() {

@@ -22,7 +22,7 @@ export async function POST(req: NextRequest) {
 
     const hashed = await bcrypt.hash(password, 12)
 
-    // Create user + workspace in one transaction
+    // Create user
     const user = await prisma.user.create({
       data: { name, email, password: hashed },
     })
@@ -30,16 +30,15 @@ export async function POST(req: NextRequest) {
     // Auto-create personal workspace
     const slug = `${slugify(name)}-${Date.now()}`
 
-    await prisma.workspace.create({
+    const workspace = await prisma.workspace.create({
       data: {
-        name:      `${name}'s Workspace`,
+        name:       `${name}'s Workspace`,
         slug,
         isPersonal: true,
         members: {
           create: { userId: user.id, role: "OWNER" }
         },
         settings: { create: {} },
-        // Create default project
         projects: {
           create: {
             name:    "My First Project",
@@ -61,6 +60,17 @@ export async function POST(req: NextRequest) {
         }
       }
     })
+
+    // Create default channels
+    if (workspace) {
+      await prisma.channel.createMany({
+        data: [
+          { name: "general",       workspaceId: workspace.id, type: "WORKSPACE" as any },
+          { name: "announcements", workspaceId: workspace.id, type: "WORKSPACE" as any },
+          { name: "random",        workspaceId: workspace.id, type: "WORKSPACE" as any },
+        ]
+      })
+    }
 
     return Response.json(
       { message: "Account created successfully", data: { id: user.id, name, email } },
