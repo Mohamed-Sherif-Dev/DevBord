@@ -4,52 +4,6 @@ import { prisma }           from "@/lib/db"
 import { successResponse, errorResponse } from "@/lib/response"
 import { z } from "zod"
 
-// export async function GET() {
-//   try {
-//     const session = await getServerSession(authOptions)
-//     if (!session?.user) return errorResponse("Unauthorized", 401)
-
-//     const userId = (session.user as any).id
-
-//     const projects = await prisma.project.findMany({
-//       where: {
-//         deletedAt: null,
-//         workspace: {
-//           members: { some: { userId } }
-//         }
-//       },
-//       include: {
-//         members: {
-//           include: {
-//             user: { select: { id: true, name: true, image: true } }
-//           },
-//           take: 5,
-//         },
-//         _count: {
-//           select: {
-//             tasks:   { where: { deletedAt: null } },
-//             members: true,
-//           }
-//         },
-//       },
-//       orderBy: { updatedAt: "desc" },
-//     })
-
-//     const projectsWithProgress = await Promise.all(
-//       projects.map(async p => {
-//         const doneCount = await prisma.task.count({
-//           where: { projectId: p.id, status: "DONE", deletedAt: null }
-//         })
-//         return { ...p, doneCount }
-//       })
-//     )
-
-//     return successResponse(projectsWithProgress)
-//   } catch (err) {
-//     console.error(err)
-//     return errorResponse("Internal server error", 500)
-//   }
-// }
 
 export async function GET() {
   try {

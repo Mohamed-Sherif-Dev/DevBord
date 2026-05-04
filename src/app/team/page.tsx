@@ -63,12 +63,14 @@ export default function TeamPage() {
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteRole, setInviteRole] = useState("MEMBER");
   const [sending, setSending] = useState(false);
+  const [invitations, setInvitations] = useState<any[]>([]);
 
   useEffect(() => {
     fetch("/api/team")
       .then((r) => r.json())
       .then((d) => {
         setMembers(d.data?.members || []);
+        setInvitations(d.data?.invitations || []);
         setWorkspace(d.data?.workspace || null);
         setLoading(false);
       })
@@ -130,13 +132,13 @@ export default function TeamPage() {
           },
           {
             label: "Active",
-            value: members.filter((m) => m.status === "ACTIVE").length,
+            value: members.filter((me) => me.status === "ACTIVE").length,
             color: "text-green-400",
             border: "border-green-500/20",
           },
           {
             label: "Admins",
-            value: members.filter((m) => ["OWNER", "ADMIN"].includes(m.role))
+            value: members.filter((me) => ["OWNER", "ADMIN"].includes(me.role))
               .length,
             color: "text-yellow-400",
             border: "border-yellow-500/20",
@@ -144,7 +146,7 @@ export default function TeamPage() {
           {
             label: "Tasks",
             value: members.reduce(
-              (s: number, m: any) => s + (m.taskCount || 0),
+              (s: number, me: any) => s + (me.taskCount || 0),
               0,
             ),
             color: "text-cyan-400",
@@ -361,6 +363,75 @@ export default function TeamPage() {
           })}
         </div>
       )}
+
+      {/* Pending Invitations */}
+{invitations.length > 0 && (
+  <motion.div
+    initial={{ opacity: 0, y: 20 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="mt-6"
+  >
+    <h3 className="text-sm font-bold text-[#7c7ca8] uppercase tracking-wider mb-3">
+      ⏳ Pending Invitations ({invitations.length})
+    </h3>
+    <div className="card-glass overflow-hidden">
+      {invitations.map((inv, i) => (
+        <div key={inv.id}
+          className="flex items-center justify-between px-5 py-3.5"
+          style={{ borderBottom: i < invitations.length - 1 ? "1px solid rgba(255,255,255,0.05)" : "none" }}
+        >
+          <div className="flex items-center gap-3">
+            {/* Avatar */}
+            <div className="w-9 h-9 rounded-xl bg-white/5 border border-white/10
+              flex items-center justify-center text-sm">
+              ✉️
+            </div>
+            <div>
+              <p className="text-sm font-semibold text-white">{inv.email}</p>
+              <p className="text-xs text-[#7c7ca8] mt-0.5">
+                Invited as{" "}
+                <span className="text-violet-400 font-semibold capitalize">
+                  {inv.role?.toLowerCase()}
+                </span>
+                {" "}· Expires{" "}
+                {new Date(inv.expiresAt).toLocaleDateString("en-US", {
+                  month: "short", day: "numeric"
+                })}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="badge bg-yellow-500/15 text-yellow-400 border border-yellow-500/20 text-xs">
+              ⏳ Pending
+            </span>
+            {/* Resend */}
+            <button
+              onClick={async () => {
+                const wsRes  = await fetch("/api/workspaces")
+                const wsData = await wsRes.json()
+                const wsId   = wsData.data?.[0]?.id
+                await fetch("/api/team/invite", {
+                  method:  "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body:    JSON.stringify({
+                    email:       inv.email,
+                    role:        inv.role,
+                    workspaceId: wsId,
+                  }),
+                })
+                toast.success(`Invitation resent to ${inv.email}! 📧`)
+              }}
+              className="text-xs text-violet-400 hover:text-violet-300 font-semibold transition-colors"
+            >
+              Resend
+            </button>
+          </div>
+        </div>
+      ))}
+    </div>
+  </motion.div>
+)}
     </DashboardLayout>
   );
 }

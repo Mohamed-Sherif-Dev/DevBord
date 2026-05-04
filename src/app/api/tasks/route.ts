@@ -89,50 +89,6 @@ export async function POST(req: Request) {
 
 
 
-// export async function GET(req: Request) {
-//   try {
-//     const session = await getServerSession(authOptions)
-//     if (!session?.user) return errorResponse("Unauthorized", 401)
-
-//     const userId = (session.user as any).id
-//     const { searchParams } = new URL(req.url)
-//     const search    = searchParams.get("search")
-//     const projectId = searchParams.get("projectId")
-
-//     const tasks = await prisma.task.findMany({
-//       where: {
-//         deletedAt: null,
-//         // لو فيه search — بدور في كل tasks الـ workspace
-//         ...(search ? {
-//           title: { contains: search, mode: "insensitive" },
-//           project: {
-//             workspace: { members: { some: { userId } } }
-//           }
-//         } : projectId ? {
-//           projectId
-//         } : {
-//           assigneeId: userId,
-//           project: {
-//             workspace: { members: { some: { userId } } }
-//           }
-//         }),
-//       },
-//       include: {
-//         assignee: { select: { id: true, name: true, image: true } },
-//         project:  { select: { id: true, name: true, color: true } },
-//         _count:   { select: { comments: true, subtasks: true } },
-//       },
-//       orderBy: [{ priority: "asc" }, { order: "asc" }],
-//       take: 20,
-//     })
-
-//     return successResponse(tasks)
-//   } catch (err) {
-//     console.error(err)
-//     return errorResponse("Internal server error", 500)
-//   }
-// }
-
 
 export async function GET(req: Request) {
   try {
