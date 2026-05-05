@@ -23,8 +23,8 @@ export async function POST(req: Request) {
         "X-Title":       "DevBoard",
       },
       body: JSON.stringify({
-        model:       "meta-llama/llama-3.1-8b-instruct:free",
-        stream:      false, // ✅ مش streaming دلوقتي
+       model: "qwen/qwen-2.5-72b-instruct",
+        stream:      false, 
         messages:    [
           {
             role:    "system",

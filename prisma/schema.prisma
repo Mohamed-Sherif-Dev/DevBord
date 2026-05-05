@@ -78,6 +78,8 @@ model User {
   emailVerified       DateTime?
   password            String?
   image               String?
+  bio                 String?
+jobTitle            String?
   role                UserRole  @default(USER)
   isActive            Boolean   @default(true)
   twoFactorEnabled    Boolean   @default(false)
