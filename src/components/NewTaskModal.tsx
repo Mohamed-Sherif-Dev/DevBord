@@ -61,13 +61,36 @@ async function handleCreate() {
 
   setLoading(true)
   try {
-    if (form.assigneeEmail) {
-      const project = PROJECTS.find(p => p.id === form.projectId)
+    const project = PROJECTS.find(p => p.id === form.projectId)
 
-      const res  = await fetch("/api/tasks/assign", {
+    // ✅ أول حاجة — عمل الـ Task في الـ DB
+    const taskRes  = await fetch("/api/tasks", {
+      method:  "POST",
+      headers: { "Content-Type": "application/json" },
+      body:    JSON.stringify({
+        title:       form.title,
+        description: form.description,
+        priority:    form.priority,
+        projectId:   form.projectId,
+        dueDate:     form.dueDate || null,
+      }),
+    })
+    const taskData = await taskRes.json()
+
+    if (!taskRes.ok) {
+      toast.error(taskData.message || "Failed to create task")
+      return
+    }
+
+    const taskId = taskData.data?.id
+
+    // ✅ لو في assignee — عمل assign وبعت إيميل
+    if (form.assigneeEmail && taskId) {
+      const assignRes = await fetch("/api/tasks/assign", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+        body:    JSON.stringify({
+          taskId,
           taskTitle:     form.title,
           assigneeEmail: form.assigneeEmail,
           assigneeName:  form.assigneeName || "Teammate",
@@ -77,14 +100,12 @@ async function handleCreate() {
         }),
       })
 
-      const data = await res.json()
+      const assignData = await assignRes.json()
 
-      if (data.emailSent) {
+      if (assignData.emailSent) {
         toast.success(`Task created & email sent to ${form.assigneeEmail}! 📧`)
       } else {
-        // Email skipped but task still created
         toast.success("Task created! ✅")
-        console.log("Email note:", data.message)
       }
     } else {
       toast.success("Task created! ✅")
@@ -95,10 +116,7 @@ async function handleCreate() {
 
   } catch (err) {
     console.error(err)
-    // مش بنوقف الـ task creation لو الإيميل فشل
-    toast.success("Task created! ✅")
-    closeNewTaskModal()
-    setForm(INITIAL_FORM)
+    toast.error("Something went wrong")
   } finally {
     setLoading(false)
   }
