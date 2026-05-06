@@ -12,10 +12,10 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
   const router            = useRouter()
   const { data: session } = useSession()
 
-  const [invite,   setInvite]   = useState<any>(null)
-  const [loading,  setLoading]  = useState(true)
-  const [accepting,setAccepting]= useState(false)
-  const [error,    setError]    = useState("")
+  const [invite,    setInvite]    = useState<any>(null)
+  const [loading,   setLoading]   = useState(true)
+  const [accepting, setAccepting] = useState(false)
+  const [error,     setError]     = useState("")
 
   useEffect(() => {
     fetch(`/api/invite/${token}`)
@@ -28,17 +28,24 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
       .catch(() => { setError("Failed to load invitation"); setLoading(false) })
   }, [token])
 
+  // ✅ تحقق إن الـ user المسجل نفس إيميل الدعوة
+  const isWrongEmail = session?.user?.email &&
+    invite?.email &&
+    session.user.email.toLowerCase() !== invite.email.toLowerCase()
+
   async function handleAccept() {
+    // ✅ لو بيستخدم إيميل غلط — ارفض
+    if (isWrongEmail) {
+      toast.error(`Please sign in with ${invite.email} to accept this invitation`)
+      return
+    }
+
     setAccepting(true)
     try {
-      const res  = await fetch(`/api/invite/${token}/accept`, {
-        method: "POST"
-      })
+      const res  = await fetch(`/api/invite/${token}/accept`, { method: "POST" })
       const data = await res.json()
-
       if (!res.ok) { toast.error(data.message); return }
-
-      toast.success("Invitation accepted! Welcome! 🎉")
+      toast.success("Welcome to the team! 🎉")
       router.push("/dashboard")
     } catch {
       toast.error("Something went wrong")
@@ -49,7 +56,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: "#070710" }}>
+      <div className="min-h-screen flex items-center justify-center"
+        style={{ background: "#070710" }}>
         <Loader2 className="w-8 h-8 text-violet-400 animate-spin" />
       </div>
     )
@@ -57,7 +65,8 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4" style={{ background: "#070710" }}>
+      <div className="min-h-screen flex items-center justify-center px-4"
+        style={{ background: "#070710" }}>
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }}
           className="card-glass p-8 w-full max-w-md text-center">
           <div className="w-16 h-16 bg-red-500/15 rounded-2xl flex items-center justify-center mx-auto mb-4">
@@ -92,48 +101,39 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
         </div>
 
         <div className="card-glass p-8 text-center">
-          {/* Icon */}
           <div className="w-20 h-20 mx-auto mb-6 rounded-3xl flex items-center justify-center text-4xl"
             style={{ background: "linear-gradient(135deg, rgba(139,92,246,0.2), rgba(6,182,212,0.2))" }}>
             🎉
           </div>
 
-          <h2 className="text-2xl font-black text-white mb-2">
-            You're Invited!
-          </h2>
-          <p className="text-[#7c7ca8] mb-6">
+          <h2 className="text-2xl font-black text-white mb-2">You're Invited!</h2>
+          <p className="text-[#7c7ca8] mb-2">
             You've been invited to join{" "}
-            <span className="text-violet-400 font-semibold">
-              {invite?.workspace?.name}
-            </span>
+            <span className="text-violet-400 font-semibold">{invite?.workspace?.name}</span>
             {" "}as a{" "}
             <span className="text-cyan-400 font-semibold capitalize">
               {invite?.role?.toLowerCase()}
             </span>
           </p>
 
-          {/* Workspace Info */}
-          <div className="p-4 rounded-xl mb-6"
+          {/* ✅ إظهار الإيميل المطلوب */}
+          <div className="p-3 rounded-xl mb-6"
             style={{ background: "rgba(139,92,246,0.08)", border: "1px solid rgba(139,92,246,0.2)" }}>
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-violet-500/20 flex items-center justify-center text-xl">
-                🏢
-              </div>
-              <div className="text-left">
-                <p className="font-bold text-white text-sm">{invite?.workspace?.name}</p>
-                <p className="text-xs text-[#7c7ca8]">
-                  {invite?.workspace?._count?.members || 0} members
-                </p>
-              </div>
-            </div>
+            <p className="text-xs text-[#7c7ca8]">
+              This invitation is for{" "}
+              <span className="text-violet-400 font-bold">{invite?.email}</span>
+            </p>
           </div>
 
-          {/* Not logged in */}
+          {/* ✅ الـ User مش logged in */}
           {!session ? (
             <div className="space-y-3">
               <p className="text-sm text-[#7c7ca8] mb-4">
-                Sign in to accept your invitation
+                Sign in or create an account with{" "}
+                <span className="text-violet-400 font-semibold">{invite?.email}</span>
               </p>
+
+              {/* Google */}
               <button
                 onClick={() => signIn("google", {
                   callbackUrl: `/invite/${token}`
@@ -141,24 +141,66 @@ export default function InvitePage({ params }: { params: Promise<{ token: string
                 className="btn-secondary w-full">
                 Continue with Google
               </button>
+
+              {/* ✅ Login بالإيميل ده بالظبط */}
               <button
-                onClick={() => router.push(`/login?callbackUrl=/invite/${token}`)}
+                onClick={() => router.push(
+                  `/login?callbackUrl=/invite/${token}&email=${encodeURIComponent(invite?.email)}`
+                )}
                 className="btn-primary w-full">
                 Sign In with Email
               </button>
+
+              {/* ✅ Register بالإيميل ده بالظبط */}
               <button
-                onClick={() => router.push(`/register?callbackUrl=/invite/${token}`)}
+                onClick={() => router.push(
+                  `/register?callbackUrl=/invite/${token}&email=${encodeURIComponent(invite?.email)}`
+                )}
                 className="w-full py-2.5 text-sm text-violet-400 hover:text-violet-300 transition-colors">
-                Create new account →
+                New here? Create account →
               </button>
             </div>
+
+          ) : isWrongEmail ? (
+            /* ✅ الـ User logged in بإيميل غلط */
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl"
+                style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)" }}>
+                <p className="text-sm text-red-400 font-semibold mb-1">⚠️ Wrong Account</p>
+                <p className="text-xs text-[#7c7ca8]">
+                  You're signed in as{" "}
+                  <span className="text-white font-semibold">{session.user?.email}</span>
+                  <br/>
+                  This invitation is for{" "}
+                  <span className="text-violet-400 font-semibold">{invite?.email}</span>
+                </p>
+              </div>
+
+              <button
+                onClick={() => signIn(undefined, {
+                  callbackUrl: `/invite/${token}`
+                })}
+                className="btn-primary w-full">
+                Sign in with {invite?.email}
+              </button>
+
+              <button
+                onClick={() => router.push(
+                  `/register?callbackUrl=/invite/${token}&email=${encodeURIComponent(invite?.email)}`
+                )}
+                className="btn-secondary w-full">
+                Create account with {invite?.email}
+              </button>
+            </div>
+
           ) : (
-            /* Logged in */
+            /* ✅ الـ User logged in بالإيميل الصح */
             <div className="space-y-3">
               <div className="p-3 rounded-xl mb-4"
                 style={{ background: "rgba(34,197,94,0.08)", border: "1px solid rgba(34,197,94,0.2)" }}>
                 <p className="text-xs text-green-400">
-                  Signed in as <span className="font-semibold">{session.user?.email}</span>
+                  ✅ Signed in as{" "}
+                  <span className="font-semibold">{session.user?.email}</span>
                 </p>
               </div>
               <button onClick={handleAccept} disabled={accepting} className="btn-primary w-full py-3">

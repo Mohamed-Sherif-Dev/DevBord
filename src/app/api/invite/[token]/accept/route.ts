@@ -12,18 +12,27 @@ export async function POST(
       return Response.json({ message: "Please sign in first" }, { status: 401 })
     }
 
-    const { token }  = await params
-    const userId     = (session.user as any).id
+    const { token } = await params
+    const userId    = (session.user as any).id
 
     const invite = await prisma.invitation.findUnique({
       where: { token }
     })
 
-    if (!invite)              return Response.json({ message: "Invitation not found"     }, { status: 404 })
-    if (invite.acceptedAt)    return Response.json({ message: "Already accepted"         }, { status: 409 })
-    if (invite.expiresAt < new Date()) return Response.json({ message: "Invitation expired" }, { status: 410 })
+    if (!invite)           return Response.json({ message: "Invitation not found"  }, { status: 404 })
+    if (invite.acceptedAt) return Response.json({ message: "Already accepted"      }, { status: 409 })
+    if (invite.expiresAt < new Date()) {
+      return Response.json({ message: "Invitation expired" }, { status: 410 })
+    }
 
-    // Check if already a member
+    // ✅ تأكد إن الإيميل بتاع الـ user نفس الإيميل في الدعوة
+    if (session.user.email?.toLowerCase() !== invite.email.toLowerCase()) {
+      return Response.json({
+        message: `This invitation is for ${invite.email}. Please sign in with that email.`
+      }, { status: 403 })
+    }
+
+    // Add to workspace
     const existing = await prisma.workspaceMember.findFirst({
       where: { workspaceId: invite.workspaceId, userId }
     })
@@ -44,7 +53,7 @@ export async function POST(
       data:  { acceptedAt: new Date() }
     })
 
-    // Send notification to workspace owner
+    // Notify owner
     const owner = await prisma.workspaceMember.findFirst({
       where: { workspaceId: invite.workspaceId, role: "OWNER" }
     })
@@ -55,7 +64,7 @@ export async function POST(
           userId:  owner.userId,
           type:    "MEMBER_JOINED",
           title:   "New Member Joined!",
-          message: `${session.user.name} accepted your invitation`,
+          message: `${session.user.name} (${session.user.email}) joined your workspace`,
           link:    "/team",
         }
       })
